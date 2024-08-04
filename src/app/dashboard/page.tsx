@@ -8,6 +8,7 @@ const DashboardPage = () => {
     <div>
       <p>Welcome to the dashboard!</p>
       <p>{data}</p>
+      
     </div>
   );
 };

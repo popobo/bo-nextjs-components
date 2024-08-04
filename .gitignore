@@ -38,3 +38,5 @@ next-env.d.ts
 /public/uploads
 .env
 .env.production
+get_staged.py
+/docker/postgres-data

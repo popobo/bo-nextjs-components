@@ -1,5 +1,21 @@
-import Image from "next/image";
+import MaxWidthWrapper from "@/components/MaxWidthWrapper";
+import Link from "next/link";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { ArrowRight } from "lucide-react";
 
 export default function Home() {
-  return <div className="w-full h-60 bg-green-400">Hello world!</div>;
+  return (
+    <MaxWidthWrapper className="mb-12 mt-28 sm:mt-40 flex flex-col items-center justify-center text-center">
+      <Link
+        className={buttonVariants({
+          size: "lg",
+          className: "mt-5",
+        })}
+        href="/dashboard"
+      >
+        Get started <ArrowRight className="ml-2 h-5 w-5" />
+      </Link>
+      <Button className="mt-4">Click me</Button>
+    </MaxWidthWrapper>
+  );
 }
