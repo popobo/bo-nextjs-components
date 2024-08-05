@@ -1,5 +1,6 @@
 import { z } from "zod";
 import emailValidator from "email-validator";
+import { validatorMessages } from "@/lib/tips";
 
 const passwordSchema = z.string().refine(
   (password) =>
@@ -26,3 +27,22 @@ export const EmailFormValidator = z.object({
 });
 
 export type TEmailFormValidator = z.infer<typeof EmailFormValidator>;
+
+// src/lib/validator.ts
+export const phoneValidator = (phone: string) => {
+  return phone.length === 11 && /^1[3-9]\d{9}$/.test(phone);
+};
+
+export const phoneCodeValidator = (code: string) => {
+  return code.length === 6 && /^\d{6}$/.test(code);
+};
+
+export const PhoneFormValidator = z.object({
+  phone: z.string().refine((phone) => phoneValidator(phone), {
+    message: validatorMessages.phone,
+  }),
+  phoneCode: z.string().refine((code) => phoneCodeValidator(code), {
+    message: validatorMessages.phoneCode,
+  }),
+});
+export type TPhoneFormValidator = z.infer<typeof PhoneFormValidator>;
