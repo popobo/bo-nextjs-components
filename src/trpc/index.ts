@@ -4,6 +4,10 @@ import { publicProcedure, router } from "./trpc";
 import { z } from "zod";
 import { db } from "@/db";
 import { hash } from "bcryptjs";
+import { getEmailTemplate, handleErrorForInitiative } from "@/lib/utils";
+import { error } from "console";
+import { emailMessages, getMessages } from "@/lib/tips";
+import { sendEmail } from "@/lib/sendEmail";
 
 export const appRouter = router({
   emailRegister: publicProcedure
@@ -15,66 +19,70 @@ export const appRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const { email, password, emailCode } = input;
+      try {
+        const { email, password, emailCode } = input;
 
-      if (!email || !password || !emailCode) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "邮箱、密码和激活码不能为空",
+        if (!email || !password || !emailCode) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: getMessages("10012"),
+          });
+        }
+
+        //邮箱是否已注册
+        const user = await db.user.findFirst({
+          where: {
+            email,
+          },
         });
-      }
 
-      //邮箱是否已注册
-      const user = await db.user.findFirst({
-        where: {
-          email,
-        },
-      });
+        if (user) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: getMessages("10013"),
+          });
+        }
 
-      if (user) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "邮箱已注册",
+        // 验证激活码是否存在
+        const emailCodeRecord = await db.activateToken.findFirst({
+          where: {
+            account: email,
+          },
         });
-      }
 
-      // 验证激活码是否存在
-      const emailCodeRecord = await db.activateToken.findFirst({
-        where: {
-          account: email,
-        },
-      });
+        if (!emailCodeRecord) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: getMessages("10014"),
+          });
+        }
 
-      if (!emailCodeRecord) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "激活码不存在，请重新发送获取",
+        // 验证激活码是否过期
+        if (emailCodeRecord.expiredAt.getTime() < Date.now()) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: getMessages("10015"),
+          });
+        }
+        // 验证激活码是否正确
+        if (emailCodeRecord.code !== emailCode) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: getMessages("10016"),
+          });
+        }
+
+        const hashedPassword = await hash(password, 10);
+        const newUser = await db.user.create({
+          data: {
+            email,
+            password: hashedPassword,
+          },
         });
+        return { id: newUser.id, email };
+      } catch {
+        handleErrorForInitiative(error);
       }
-
-      // 验证激活码是否过期
-      if (emailCodeRecord.expiredAt.getTime() < Date.now()) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "激活码已过期，请重新发送获取",
-        });
-      }
-      // 验证激活码是否正确
-      if (emailCodeRecord.code !== emailCode) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "激活码不正确，请重新输入",
-        });
-      }
-
-      const hashedPassword = await hash(password, 10);
-      const newUser = await db.user.create({
-        data: {
-          email,
-          password: hashedPassword,
-        },
-      });
-      return { id: newUser.id, email };
     }),
 
   emailActive: publicProcedure
@@ -99,6 +107,12 @@ export const appRouter = router({
         },
       });
       // 发送邮件
+      await sendEmail({
+        to: email,
+        subject: "激活邮件",
+        text: emailMessages.TEXT,
+        html: getEmailTemplate(hashedEmail, email),
+      });
       // 返回状态
       return { status: "success" };
     }),
